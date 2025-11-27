@@ -131,7 +131,7 @@ def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> lis
     try:
         genai.configure(api_key=api_key)
         # Trocamos PRO por FLASH para garantir compatibilidade
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        model = genai.GenerativeModel('gemini-2.0-flash') 
         
         prompt = f"""
         Atue como um especialista em memes.
@@ -156,7 +156,7 @@ def iterate_meme_phrases(api_key: str, image: Image.Image, context: str, selecte
     try:
         genai.configure(api_key=api_key)
         # Trocamos PRO por FLASH aqui também
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
         examples = "\n".join([f"- {p}" for p in selected_phrases])
         
