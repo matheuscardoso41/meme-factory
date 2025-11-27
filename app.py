@@ -138,7 +138,7 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         return model.generate_content([prompt, image])
     except Exception as e:
         try:
