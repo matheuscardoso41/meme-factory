@@ -6,6 +6,26 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 import google.generativeai as genai
 
+# Configuração da Página
+st.set_page_config(
+    page_title="Meme Factory AI",
+    page_icon="🎭",
+    layout="wide"
+)
+
+st.title("🎭 Meme Factory AI")
+st.markdown("Gere memes incríveis usando Inteligência Artificial!")
+
+# Inicialização de Estado
+if "meme_phrases" not in st.session_state:
+    st.session_state.meme_phrases = []
+if "original_image" not in st.session_state:
+    st.session_state.original_image = None
+if "selected_phrases" not in st.session_state:
+    st.session_state.selected_phrases = {}
+if "iteration_count" not in st.session_state:
+    st.session_state.iteration_count = 0
+
 # --- LÓGICA DE API KEY SEGURA (NOVA) ---
 api_key = None
 
@@ -31,26 +51,6 @@ with st.sidebar:
         st.session_state.original_image = image
         st.image(image, caption="Preview", use_column_width=True)
 
-# Configuração da Página
-st.set_page_config(
-    page_title="Meme Factory AI",
-    page_icon="🎭",
-    layout="wide"
-)
-
-st.title("🎭 Meme Factory AI")
-st.markdown("Gere memes incríveis usando Inteligência Artificial!")
-
-# Inicialização de Estado
-if "meme_phrases" not in st.session_state:
-    st.session_state.meme_phrases = []
-if "original_image" not in st.session_state:
-    st.session_state.original_image = None
-if "selected_phrases" not in st.session_state:
-    st.session_state.selected_phrases = {}
-if "iteration_count" not in st.session_state:
-    st.session_state.iteration_count = 0
-
 # --- Funções Utilitárias de Imagem ---
 
 def resize_image(image: Image.Image, max_width: int = 800) -> Image.Image:
@@ -66,20 +66,17 @@ def get_font(size: int) -> ImageFont.FreeTypeFont:
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "arial.ttf"
     ]
-    
     for path in font_paths:
         try:
             return ImageFont.truetype(path, size)
         except (IOError, OSError):
             continue
-    
     return ImageFont.load_default()
 
 def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: ImageDraw.ImageDraw) -> list:
     words = text.split()
     lines = []
     current_line = ""
-    
     for word in words:
         test_line = f"{current_line} {word}".strip()
         try:
@@ -87,17 +84,14 @@ def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: Ima
             text_width = bbox[2] - bbox[0]
         except AttributeError:
              text_width = draw.textlength(test_line, font=font)
-
         if text_width <= max_width:
             current_line = test_line
         else:
             if current_line:
                 lines.append(current_line)
             current_line = word
-    
     if current_line:
         lines.append(current_line)
-    
     return lines
 
 def draw_text_with_outline(draw: ImageDraw.ImageDraw, position: tuple, text: str, 
@@ -114,50 +108,47 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
     img = resize_image(image)
     if img.mode != "RGB":
         img = img.convert("RGB")
-    
     draw = ImageDraw.Draw(img)
     img_width, img_height = img.size
-    
     padding = 20
     max_text_width = img_width - (padding * 2)
-    
     font_size = max(24, img_width // 10)
     font = get_font(font_size)
-    
     lines = wrap_text(text.upper(), font, max_text_width, draw)
-    
     while len(lines) > 4 and font_size > 16:
         font_size -= 4
         font = get_font(font_size)
         lines = wrap_text(text.upper(), font, max_text_width, draw)
-    
     line_height = font_size + 5
     total_text_height = len(lines) * line_height
-    
     start_y = img_height - total_text_height - padding
-    
     for i, line in enumerate(lines):
         try:
             bbox = draw.textbbox((0, 0), line, font=font)
             text_width = bbox[2] - bbox[0]
         except:
              text_width = draw.textlength(line, font=font)
-             
         x = (img_width - text_width) // 2
         y = start_y + (i * line_height)
-        
         draw_text_with_outline(draw, (x, y), line, font)
-    
     return img
 
-# --- Funções de IA (Gemini 1.5 FLASH - Mais Rápido e Estável) ---
+# --- Funções de IA Blindada ---
+
+def try_generate_content(api_key, prompt, image):
+    genai.configure(api_key=api_key)
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        return model.generate_content([prompt, image])
+    except Exception as e:
+        try:
+            model = genai.GenerativeModel('gemini-pro-vision')
+            return model.generate_content([prompt, image])
+        except Exception as e2:
+            raise e2
 
 def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> list:
     try:
-        genai.configure(api_key=api_key)
-        # Trocamos PRO por FLASH para garantir compatibilidade
-        model = genai.GenerativeModel('gemini-2.0-flash') 
-        
         prompt = f"""
         Atue como um especialista em memes.
         Analise esta imagem e o contexto: '{context}'.
@@ -165,58 +156,39 @@ def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> lis
         Responda APENAS com um JSON puro (lista de strings).
         Exemplo: ["Frase 1", "Frase 2"]
         """
-        
-        response = model.generate_content([prompt, image])
-        
-        text_clean = response.text.replace("```json", "").replace("```", "").strip()
+        response = try_generate_content(api_key, prompt, image)
+        text_clean = response.text
+        match = re.search(r'\[.*\]', text_clean, re.DOTALL)
+        if match:
+            text_clean = match.group(0)
         phrases = json.loads(text_clean)
-        
         return phrases[:20] if isinstance(phrases, list) else []
-        
     except Exception as e:
-        st.error(f"Erro na IA: {str(e)}")
+        st.error(f"Erro na IA (Verifique sua Chave API): {str(e)}")
         return []
 
 def iterate_meme_phrases(api_key: str, image: Image.Image, context: str, selected_phrases: list) -> list:
     try:
-        genai.configure(api_key=api_key)
-        # Trocamos PRO por FLASH aqui também
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        
         examples = "\n".join([f"- {p}" for p in selected_phrases])
-        
         prompt = f"""
         Contexto: '{context}'.
         O usuário GOSTOU dessas frases:
         {examples}
-        
         Crie MAIS 20 frases novas no mesmo estilo.
         Responda APENAS com JSON (lista de strings).
         """
-        
-        response = model.generate_content([prompt, image])
-        
-        text_clean = response.text.replace("```json", "").replace("```", "").strip()
+        response = try_generate_content(api_key, prompt, image)
+        text_clean = response.text
+        match = re.search(r'\[.*\]', text_clean, re.DOTALL)
+        if match:
+            text_clean = match.group(0)
         phrases = json.loads(text_clean)
-        
         return phrases[:20] if isinstance(phrases, list) else []
-        
     except Exception as e:
         st.error(f"Erro na Iteração: {str(e)}")
         return []
 
 # --- Interface Principal ---
-
-with st.sidebar:
-    st.header("⚙️ Configurações")
-    api_key = st.text_input("Google Gemini API Key", type="password")
-    st.markdown("---")
-    uploaded_file = st.file_uploader("Escolha uma imagem", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-        st.session_state.original_image = image
-        st.image(image, caption="Preview", use_column_width=True)
 
 st.markdown("### 📝 Contexto")
 context = st.text_area("Descreva o contexto (Ex: Corporativo, Festa, Ironia...)", height=80)
@@ -232,12 +204,9 @@ if st.button("🚀 Gerar Ideias", type="primary", use_container_width=True):
                 st.session_state.selected_phrases = {i: True for i in range(len(phrases))}
                 st.success("Gerado!")
 
-# --- Área de Seleção e Download ---
-
 if st.session_state.meme_phrases:
     st.markdown("---")
     st.subheader("Selecione as melhores:")
-    
     cols = st.columns(2)
     for i, phrase in enumerate(st.session_state.meme_phrases):
         col_idx = i % 2
@@ -247,15 +216,12 @@ if st.session_state.meme_phrases:
                 value=st.session_state.selected_phrases.get(i, True),
                 key=f"chk_{st.session_state.iteration_count}_{i}"
             )
-    
     selected_list = [
         st.session_state.meme_phrases[i] 
         for i, sel in st.session_state.selected_phrases.items() if sel
     ]
-    
     st.markdown("---")
     c1, c2 = st.columns(2)
-    
     with c1:
         if st.button("🔄 Quero mais nesse estilo", use_container_width=True):
             if not selected_list:
@@ -270,7 +236,6 @@ if st.session_state.meme_phrases:
                         st.session_state.meme_phrases = new_phrases
                         st.session_state.selected_phrases = {i: True for i in range(len(new_phrases))}
                         st.rerun()
-
     with c2:
         if st.button(f"💾 Baixar {len(selected_list)} Memes", type="primary", use_container_width=True):
             if not selected_list:
@@ -278,7 +243,6 @@ if st.session_state.meme_phrases:
             else:
                 zip_buffer = io.BytesIO()
                 prog_bar = st.progress(0)
-                
                 with zipfile.ZipFile(zip_buffer, 'w') as zf:
                     for idx, phrase in enumerate(selected_list):
                         final_img = create_meme(st.session_state.original_image, phrase)
@@ -287,7 +251,6 @@ if st.session_state.meme_phrases:
                         safe_name = re.sub(r'[^\w\s-]', '', phrase[:20]).strip().replace(' ', '_')
                         zf.writestr(f"meme_{idx+1}_{safe_name}.jpg", img_byte_arr.getvalue())
                         prog_bar.progress((idx + 1) / len(selected_list))
-                
                 st.success("Pronto!")
                 st.download_button(
                     label="⬇️ CLIQUE PARA BAIXAR O ZIP",
