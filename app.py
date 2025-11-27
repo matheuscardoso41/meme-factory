@@ -4,7 +4,7 @@ import io
 import zipfile
 import re
 from PIL import Image, ImageDraw, ImageFont
-import google.generativeai as genai # <--- CORREÇÃO AQUI (Biblioteca Padrão)
+import google.generativeai as genai
 
 # Configuração da Página
 st.set_page_config(
@@ -62,7 +62,7 @@ def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: Ima
         try:
             bbox = draw.textbbox((0, 0), test_line, font=font)
             text_width = bbox[2] - bbox[0]
-        exceptAttributeError:
+        except AttributeError:  # <--- CORRIGIDO AQUI (Espaço adicionado)
              text_width = draw.textlength(test_line, font=font)
 
         if text_width <= max_width:
