@@ -6,6 +6,31 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 import google.generativeai as genai
 
+# --- LÓGICA DE API KEY SEGURA (NOVA) ---
+api_key = None
+
+# 1. Tenta pegar dos Segredos do Streamlit (O Cofre)
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+
+# 2. Se não achou no cofre, cria o campo na barra lateral
+with st.sidebar:
+    st.header("⚙️ Configurações")
+    
+    if not api_key:
+        api_key = st.text_input("Google Gemini API Key", type="password")
+        if not api_key:
+            st.warning("⚠️ Adicione a API Key nos 'Secrets' do Streamlit ou digite aqui.")
+    else:
+        st.success("🔑 API Key carregada do sistema!")
+    
+    st.markdown("---")
+    uploaded_file = st.file_uploader("Escolha uma imagem", type=["jpg", "jpeg", "png"])
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.session_state.original_image = image
+        st.image(image, caption="Preview", use_column_width=True)
+
 # Configuração da Página
 st.set_page_config(
     page_title="Meme Factory AI",
