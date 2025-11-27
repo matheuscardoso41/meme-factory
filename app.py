@@ -185,4 +185,89 @@ def iterate_meme_phrases(api_key: str, image: Image.Image, context: str, selecte
 with st.sidebar:
     st.header("⚙️ Configurações")
     api_key = st.text_input("Google Gemini API Key", type="password")
-    st.markdown
+    st.markdown("---")
+    uploaded_file = st.file_uploader("Escolha uma imagem", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.session_state.original_image = image
+        st.image(image, caption="Preview", use_column_width=True)
+
+st.markdown("### 📝 Contexto")
+context = st.text_area("Descreva o contexto (Ex: Corporativo, Festa, Ironia...)", height=80)
+
+if st.button("🚀 Gerar Ideias", type="primary", use_container_width=True):
+    if not api_key or not uploaded_file or not context:
+        st.warning("Preencha a API Key, suba a imagem e dê um contexto!")
+    else:
+        with st.spinner("O robô está pensando nas piadas..."):
+            phrases = generate_meme_phrases(api_key, st.session_state.original_image, context)
+            if phrases:
+                st.session_state.meme_phrases = phrases
+                st.session_state.selected_phrases = {i: True for i in range(len(phrases))}
+                st.success("Gerado!")
+
+# --- Área de Seleção e Download ---
+
+if st.session_state.meme_phrases:
+    st.markdown("---")
+    st.subheader("Selecione as melhores:")
+    
+    cols = st.columns(2)
+    for i, phrase in enumerate(st.session_state.meme_phrases):
+        col_idx = i % 2
+        with cols[col_idx]:
+            st.session_state.selected_phrases[i] = st.checkbox(
+                phrase, 
+                value=st.session_state.selected_phrases.get(i, True),
+                key=f"chk_{st.session_state.iteration_count}_{i}"
+            )
+    
+    selected_list = [
+        st.session_state.meme_phrases[i] 
+        for i, sel in st.session_state.selected_phrases.items() if sel
+    ]
+    
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        if st.button("🔄 Quero mais nesse estilo", use_container_width=True):
+            if not selected_list:
+                st.warning("Selecione pelo menos uma frase modelo!")
+            else:
+                with st.spinner("Criando variações..."):
+                    new_phrases = iterate_meme_phrases(
+                        api_key, st.session_state.original_image, context, selected_list
+                    )
+                    if new_phrases:
+                        st.session_state.iteration_count += 1
+                        st.session_state.meme_phrases = new_phrases
+                        st.session_state.selected_phrases = {i: True for i in range(len(new_phrases))}
+                        st.rerun()
+
+    with c2:
+        if st.button(f"💾 Baixar {len(selected_list)} Memes", type="primary", use_container_width=True):
+            if not selected_list:
+                st.error("Selecione alguma frase!")
+            else:
+                zip_buffer = io.BytesIO()
+                prog_bar = st.progress(0)
+                
+                with zipfile.ZipFile(zip_buffer, 'w') as zf:
+                    for idx, phrase in enumerate(selected_list):
+                        final_img = create_meme(st.session_state.original_image, phrase)
+                        img_byte_arr = io.BytesIO()
+                        final_img.save(img_byte_arr, format='JPEG', quality=95)
+                        safe_name = re.sub(r'[^\w\s-]', '', phrase[:20]).strip().replace(' ', '_')
+                        zf.writestr(f"meme_{idx+1}_{safe_name}.jpg", img_byte_arr.getvalue())
+                        prog_bar.progress((idx + 1) / len(selected_list))
+                
+                st.success("Pronto!")
+                st.download_button(
+                    label="⬇️ CLIQUE PARA BAIXAR O ZIP",
+                    data=zip_buffer.getvalue(),
+                    file_name="meus_memes.zip",
+                    mime="application/zip",
+                    type="primary"
+                )
