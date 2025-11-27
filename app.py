@@ -191,7 +191,7 @@ def iterate_meme_phrases(api_key: str, image: Image.Image, context: str, selecte
 # --- Interface Principal ---
 
 st.markdown("### 📝 Contexto")
-context = st.text_area("Descreva o contexto (Ex: Corporativo, Festa, Ironia...)", height=80)
+context = st.text_area("Descreva o contexto de forma detalhada (Ex: tom bem humorado, direcionado a um público de 24-35 anos, brasileiros. conteúdo deve ser posicionado para gerar ampla identificação e interesse.)", height=80)
 
 if st.button("🚀 Gerar Ideias", type="primary", use_container_width=True):
     if not api_key or not uploaded_file or not context:
