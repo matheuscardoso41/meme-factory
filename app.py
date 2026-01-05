@@ -138,13 +138,17 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        # Tenta usar o modelo mais rápido e estável atual (Flash 1.5)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content([prompt, image])
     except Exception as e:
         try:
-            model = genai.GenerativeModel('gemini-pro-vision')
+            # Fallback para o modelo Pro 1.5 (mais robusto, caso o Flash falhe)
+            # Substituindo o antigo 'gemini-pro-vision' que não existe mais
+            model = genai.GenerativeModel('gemini-1.5-pro')
             return model.generate_content([prompt, image])
         except Exception as e2:
+            # Se ambos falharem, mostra o erro original
             raise e2
 
 def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> list:
