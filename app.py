@@ -1,17 +1,3 @@
-import google.generativeai as genai
-import streamlit as st
-
-st.sidebar.warning(f"Versão da lib Google: {genai.__version__}")
-
-# Tenta listar os modelos disponíveis para sua chave
-try:
-    st.sidebar.write("Modelos disponíveis:")
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            st.sidebar.code(m.name)
-except Exception as e:
-    st.sidebar.error(f"Erro ao listar: {e}")
-
 import streamlit as st
 import json
 import io
@@ -150,16 +136,17 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
     try:
-        # Tenta o modelo Flash 1.5 (Rápido e Multimodal)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Tenta o modelo NOVO: 2.5 Flash (que aparece no seu print)
+        model = genai.GenerativeModel('gemini-2.5-flash')
         return model.generate_content([prompt, image])
     except Exception as e:
         try:
-            # Fallback para o Pro 1.5 (Mais robusto)
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            # Fallback para o NOVO: 2.5 Pro (mais robusto)
+            model = genai.GenerativeModel('gemini-2.5-pro')
             return model.generate_content([prompt, image])
         except Exception as e2:
-            raise e2
+            # Se der erro, mostra exatamente o que houve
+            raise Exception(f"Erro ao tentar modelos 2.5: {str(e2)}")
 
 def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> list:
     try:
