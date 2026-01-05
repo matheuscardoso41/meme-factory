@@ -26,25 +26,23 @@ if "selected_phrases" not in st.session_state:
 if "iteration_count" not in st.session_state:
     st.session_state.iteration_count = 0
 
-# --- LÓGICA DE API KEY SEGURA ---
+# --- LÓGICA DE API KEY MANUAL ---
 api_key = None
 
-# 1. Tenta pegar dos Segredos do Streamlit
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-
-# 2. Se não achou no cofre, cria o campo na barra lateral
 with st.sidebar:
     st.header("⚙️ Configurações")
     
-    if not api_key:
-        api_key = st.text_input("Google Gemini API Key", type="password")
-        if not api_key:
-            st.warning("⚠️ Adicione a API Key nos 'Secrets' do Streamlit ou digite aqui.")
+    # Campo obrigatório para o usuário digitar
+    api_key = st.text_input("Insira sua Google Gemini API Key", type="password", help="A chave é necessária para gerar as frases.")
+    
+    if api_key:
+        st.success("🔑 Chave inserida!")
     else:
-        st.success("🔑 API Key carregada do sistema!")
+        st.warning("⚠️ API Key necessária")
+        st.markdown("👉 [Obter chave no Google AI Studio](https://aistudio.google.com/app/apikey)")
     
     st.markdown("---")
+    
     uploaded_file = st.file_uploader("Escolha uma imagem", type=["jpg", "jpeg", "png"])
     if uploaded_file:
         image = Image.open(uploaded_file)
@@ -133,7 +131,7 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
         draw_text_with_outline(draw, (x, y), line, font)
     return img
 
-# --- Funções de IA Blindada (CORRIGIDO) ---
+# --- Funções de IA Blindada ---
 
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
@@ -197,8 +195,12 @@ st.markdown("### 📝 Contexto")
 context = st.text_area("Descreva o contexto de forma detalhada (Ex: tom bem humorado, direcionado a um público de 24-35 anos, brasileiros. conteúdo deve ser posicionado para gerar ampla identificação e interesse.)", height=80)
 
 if st.button("🚀 Gerar Ideias", type="primary", use_container_width=True):
-    if not api_key or not uploaded_file or not context:
-        st.warning("Preencha a API Key, suba a imagem e dê um contexto!")
+    if not api_key:
+        st.error("⚠️ Você precisa inserir a API Key na barra lateral para continuar!")
+    elif not uploaded_file:
+        st.warning("⚠️ Faça upload de uma imagem na barra lateral.")
+    elif not context:
+        st.warning("⚠️ Dê um contexto para o meme.")
     else:
         with st.spinner("O robô está pensando nas piadas..."):
             phrases = generate_meme_phrases(api_key, st.session_state.original_image, context)
