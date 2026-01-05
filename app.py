@@ -26,10 +26,10 @@ if "selected_phrases" not in st.session_state:
 if "iteration_count" not in st.session_state:
     st.session_state.iteration_count = 0
 
-# --- LÓGICA DE API KEY SEGURA (NOVA) ---
+# --- LÓGICA DE API KEY SEGURA ---
 api_key = None
 
-# 1. Tenta pegar dos Segredos do Streamlit (O Cofre)
+# 1. Tenta pegar dos Segredos do Streamlit
 if "GOOGLE_API_KEY" in st.secrets:
     api_key = st.secrets["GOOGLE_API_KEY"]
 
@@ -133,22 +133,20 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
         draw_text_with_outline(draw, (x, y), line, font)
     return img
 
-# --- Funções de IA Blindada ---
+# --- Funções de IA Blindada (CORRIGIDO) ---
 
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
     try:
-        # Tenta usar o modelo mais rápido e estável atual (Flash 1.5)
+        # Tenta o modelo Flash 1.5 (Rápido e Multimodal)
         model = genai.GenerativeModel('gemini-1.5-flash')
         return model.generate_content([prompt, image])
     except Exception as e:
         try:
-            # Fallback para o modelo Pro 1.5 (mais robusto, caso o Flash falhe)
-            # Substituindo o antigo 'gemini-pro-vision' que não existe mais
+            # Fallback para o Pro 1.5 (Mais robusto)
             model = genai.GenerativeModel('gemini-1.5-pro')
             return model.generate_content([prompt, image])
         except Exception as e2:
-            # Se ambos falharem, mostra o erro original
             raise e2
 
 def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> list:
@@ -162,6 +160,7 @@ def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> lis
         """
         response = try_generate_content(api_key, prompt, image)
         text_clean = response.text
+        # Limpeza extra para garantir JSON válido
         match = re.search(r'\[.*\]', text_clean, re.DOTALL)
         if match:
             text_clean = match.group(0)
