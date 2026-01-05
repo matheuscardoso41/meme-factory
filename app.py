@@ -1,3 +1,17 @@
+import google.generativeai as genai
+import streamlit as st
+
+st.sidebar.warning(f"Versão da lib Google: {genai.__version__}")
+
+# Tenta listar os modelos disponíveis para sua chave
+try:
+    st.sidebar.write("Modelos disponíveis:")
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            st.sidebar.code(m.name)
+except Exception as e:
+    st.sidebar.error(f"Erro ao listar: {e}")
+
 import streamlit as st
 import json
 import io
