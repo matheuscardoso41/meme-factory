@@ -26,20 +26,24 @@ if "selected_phrases" not in st.session_state:
 if "iteration_count" not in st.session_state:
     st.session_state.iteration_count = 0
 
-# --- LÓGICA DE API KEY MANUAL ---
+# --- LÓGICA DE API KEY HÍBRIDA (Secrets ou Manual) ---
 api_key = None
+
+# 1. Tenta carregar automaticamente dos Segredos
+if "GOOGLE_API_KEY" in st.secrets:
+    api_key = st.secrets["GOOGLE_API_KEY"]
 
 with st.sidebar:
     st.header("⚙️ Configurações")
     
-    # Campo obrigatório para o usuário digitar
-    api_key = st.text_input("Insira sua Google Gemini API Key", type="password", help="A chave é necessária para gerar as frases.")
-    
+    # 2. Se já tem chave dos secrets, avisa. Se não, pede manual.
     if api_key:
-        st.success("🔑 Chave inserida!")
+        st.success("🔑 API Key carregada do Sistema (Secrets)!")
     else:
-        st.warning("⚠️ API Key necessária")
-        st.markdown("👉 [Obter chave no Google AI Studio](https://aistudio.google.com/app/apikey)")
+        api_key = st.text_input("Insira sua Google Gemini API Key", type="password", help="A chave é necessária para gerar as frases.")
+        if not api_key:
+            st.warning("⚠️ API Key necessária")
+            st.markdown("👉 [Obter chave no Google AI Studio](https://aistudio.google.com/app/apikey)")
     
     st.markdown("---")
     
@@ -136,16 +140,15 @@ def create_meme(image: Image.Image, text: str) -> Image.Image:
 def try_generate_content(api_key, prompt, image):
     genai.configure(api_key=api_key)
     try:
-        # Tenta o modelo NOVO: 2.5 Flash (que aparece no seu print)
+        # Tenta o modelo NOVO: 2.5 Flash
         model = genai.GenerativeModel('gemini-2.5-flash')
         return model.generate_content([prompt, image])
     except Exception as e:
         try:
-            # Fallback para o NOVO: 2.5 Pro (mais robusto)
+            # Fallback para o NOVO: 2.5 Pro
             model = genai.GenerativeModel('gemini-2.5-pro')
             return model.generate_content([prompt, image])
         except Exception as e2:
-            # Se der erro, mostra exatamente o que houve
             raise Exception(f"Erro ao tentar modelos 2.5: {str(e2)}")
 
 def generate_meme_phrases(api_key: str, image: Image.Image, context: str) -> list:
@@ -197,7 +200,7 @@ context = st.text_area("Descreva o contexto de forma detalhada (Ex: tom bem humo
 
 if st.button("🚀 Gerar Ideias", type="primary", use_container_width=True):
     if not api_key:
-        st.error("⚠️ Você precisa inserir a API Key na barra lateral para continuar!")
+        st.error("⚠️ Você precisa configurar a API Key (nos Secrets ou manualmente)!")
     elif not uploaded_file:
         st.warning("⚠️ Faça upload de uma imagem na barra lateral.")
     elif not context:
